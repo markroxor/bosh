@@ -1,7 +1,7 @@
 #!/bin/bash
-# pip install boto3
 # chmod +x bo.sh
-# multiple file upload/download
+# sudo cp bo.sh /usr/local/bin/bo
+
 set -e
 
 help="\
@@ -16,30 +16,6 @@ OPTIONS:
                             Specify default using \`export default_bucket=BUCKET\` or with this param.
   -f, --file                The file to transact. Provide multiple files delimited by comma.
 "
-
-SHORT=hbfv:
-LONG=help,bucket:,file:,verbose,links_file:
-
-if [[ -z $1 ]]; then
-    echo "Usage $0 [options ]"
-    echo "Try 'bo --help' for more information."
-    exit
-fi
-
-OPTS=$(getopt --options $SHORT --long $LONG --name "$0" -- "$@")
-eval set -- "$OPTS"
-VERBOSE=false
-while [ -n "$1" ]
-do
-    case "$1" in    
-        -h | --help) echo "$help"; exit ;;
-        -f | --file) FILE=$2; shift 2;;
-        -v | --verbose) VERBOSE=true; shift ;; 
-        --bucket) default_bucket=$2; shift 2;;
-        --) shift  ;;
-        *) echo "Unknown param - " $1 "type $0 --help for usage instructions"; break;;
-    esac
-done
 
 type python3 &> /dev/null || { echo "python3 not installed, exiting.." && exit 1; }
 
@@ -72,18 +48,50 @@ done
 
 }
 
+SHORT=hbfv:
+LONG=help,bucket:,file:,verbose,links_file:
+
+if [[ -z $1 ]]; then
+    echo "Usage `echo $0 | rev | cut -d / -f1 | rev` [options ]"
+    echo "Try 'bo --help' for more information."
+    exit
+fi
+
+OPTS=$(getopt --options $SHORT --long $LONG --name "$0" -- "$@")
+eval set -- "$OPTS"
+
+VERBOSE=false
+while [ -n "$1" ]
+do
+    case "$1" in    
+        -h | --help) echo "$help"; exit ;;
+        -f | --file) FILE=$2; shift 2;;
+        --) x=$(printf ",%s" "${@}");
+            if [[ -n ${x:4} ]]
+            then
+            FILE=${x:4}
+            fi
+            shift $#;;
+        -v | --verbose) VERBOSE=true; shift ;; 
+        --bucket) default_bucket=$2; shift 2;;
+        *) echo "Unknown param - " $1 "type `echo $0 | rev | cut -d / -f1 | rev` --help for usage instructions"; exit;;
+    esac
+done
+
+
+
 
 if [[ -z ${default_bucket+x} ]]
     then
-    echo "Neither default bucket set or specified, call Usage $0 --help";
+    echo "Neither default bucket set or specified \n Usage `echo $0 | rev | cut -d / -f1 | rev` --help";
     exit
 fi
 
-if [[ ! -f ${FILE} ]]
-    then
-    echo "$FILE is not a valid file.";
-    exit
-fi
+# if [[ ! -f ${FILE} ]]
+#     then
+#     echo "$FILE is not a valid file.";
+#     exit
+# fi
 
 BUCKET=${2:-$default_bucket}
 
