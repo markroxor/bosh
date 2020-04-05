@@ -10,35 +10,31 @@ A simple CLI utility for transacting files over Google Cloud Storage.
 Example: bo hello.cpp
 
 OPTIONS:
-  -h, --help                Prints this help message.
-  -v, --verbose             Print debug messages.
-  -b, --bucket              Bucket to transact with. Defaults to default_bucket variable in environment.
+  -h                        Prints this help message.
+  -v                        Print debug messages.
+  -b                        Bucket to transact with. Defaults to default_bucket variable in environment.
                             Specify default using \`export default_bucket=BUCKET\` or with this param.
-  -f, --file                The file to transact. Provide multiple files delimited by comma.
+  -f                       The file to transact. Provide multiple files delimited by comma.
 "
+print_retry()
+{
+echo "Usage `basename $0` [options ]
+Try 'bo --help' for more information."
+}
 
 type python3 &> /dev/null || { echo "python3 not installed, exiting.." && exit 1; }
 
-if [[ -z ${google_access_key_id+x} ]]
-then
-    echo "google_access_key_id environment variable not set."
-    exit 1
-fi
+: ${google_access_key_id?"google_access_key_id environment variable not set."}
+: ${google_access_key_secret?"google_access_key_secret environment variable not set."}
 
-if [[ -z ${google_access_key_secret+x} ]]
-then
-    echo "google_access_key_secret environment variable not set."
-    exit
-fi
-
-python -c 'import boto3' 2> /dev/null || { while [[ -z ${response} ]]
+python3 -c 'import boto3' 2> /dev/null || { while [[ -z ${REPLY} ]]
 do
     echo "python library boto3 is missing, install? (y/n)"
-    read response
-    if [[ $response = "y" ]]
+    read -n1
+    if [[ $REPLY = "y" ]]
     then
         python3 -m pip install boto3 
-    elif [[ $response = "n" ]]
+    elif [[ $REPLY = "n" ]]
     then
         echo "python library boto3 is required for this tool to work."
     else
@@ -48,50 +44,46 @@ done
 
 }
 
-SHORT=hbfv:
-LONG=help,bucket:,file:,verbose,links_file:
-
-if [[ -z $1 ]]; then
-    echo "Usage `echo $0 | rev | cut -d / -f1 | rev` [options ]"
-    echo "Try 'bo --help' for more information."
-    exit
-fi
-
-OPTS=$(getopt --options $SHORT --long $LONG --name "$0" -- "$@")
-eval set -- "$OPTS"
+: ${1?"Usage `basename $0` [options ]
+Try 'bo --help' for more information."}
 
 VERBOSE=false
-while [ -n "$1" ]
+
+while getopts ":hb:f:v" Option
 do
-    case "$1" in    
-        -h | --help) echo "$help"; exit ;;
-        -f | --file) FILE=$2; shift 2;;
-        --) x=$(printf ",%s" "${@}");
-            if [[ -n ${x:4} ]]
-            then
-            FILE=${x:4}
-            fi
-            shift $#;;
-        -v | --verbose) VERBOSE=true; shift ;; 
-        --bucket) default_bucket=$2; shift 2;;
-        *) echo "Unknown param - " $1 "type `echo $0 | rev | cut -d / -f1 | rev` --help for usage instructions"; exit;;
+    case "$Option" in    
+        # *) echo $Option $OPTARG $OPTIND;;
+        h) echo "$help"; exit ;;
+        f) FILE=$OPTARG;;
+        v) VERBOSE=true;;
+        b) default_bucket=$OPTARG;;
+        *) echo "Unknown flag - $OPTARG"; print_retry; exit;;
     esac
 done
-
-
-
-
-if [[ -z ${default_bucket+x} ]]
-    then
-    echo "Neither default bucket set or specified \n Usage `echo $0 | rev | cut -d / -f1 | rev` --help";
-    exit
+echo $OPTIND $#
+shift $(($OPTIND - 1))
+if (($# == 1))
+then
+FILE=$1;
+elif (($# != 0))
+then
+echo "Parameter without flags provided"
+exit 1
 fi
 
-# if [[ ! -f ${FILE} ]]
-#     then
-#     echo "$FILE is not a valid file.";
-#     exit
-# fi
+echo FILE $FILE buck $default_bucket optind $OPTIND 
+
+echo args $#
+
+
+: ${default_bucket?"Neither default bucket set or specified
+$(print_retry)"}
+
+if [[ ! -f ${FILE} ]]
+    then
+    echo "$FILE is not a valid file.";
+    exit
+fi
 
 BUCKET=${2:-$default_bucket}
 
